@@ -13,9 +13,9 @@ class AverageMeter(object):
 
     def update(self, val, n=1):
         self.val = val
-        self.sum += val * n
+        self.sum += val
         self.count += n
-        self.avg = self.sum / self.count
+        self.avg = 100.0 * self.sum / self.count
 
 def correct_count(output, target, reduce=True):
     _, pred = torch.topk(output, 1, 1, True, True)
