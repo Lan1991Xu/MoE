@@ -34,6 +34,6 @@ class checkpoint():
             raise RuntimeError
         ckpt = torch.load(resume)
         model.load_state_dict(ckpt['model'])
-        opti.load_state_dick(ckpt['opti'])
+        opti.load_state_dict(ckpt['opti'])
         print("=> loaded checkpoint '{}' (epoch {})".format(resume, ckpt['epoch']))
         return model, opti
