@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from lib.statistic import *
-from models import *
+from models import resnet
 
 class IE(nn.Module):
 
@@ -10,7 +10,7 @@ class IE(nn.Module):
         self.model_num = model_num
         self.loss = 0
         for model_idx in range(model_num):
-            self.add_module('expert-' + str(model_idx), resnet(depth=20, num_classes=num_classes))
+            self.add_module('expert-' + str(model_idx), resnet(depth=get_depth(num_classes), num_classes=num_classes))
 
     def clean_statistic(self):
         self.oracle = AverageMeter()
@@ -48,10 +48,15 @@ class IE(nn.Module):
         self.accumulate_statistic(input.size(0), outputs, target)
 
     def backward(self):
-        return self.loss.backward()
+        self.loss.backward()
 
 
-
+def get_depth(num_classes):
+    if num_classes == 10:
+        return 20
+    elif num_classes == 100:
+        return 32
+    return 20
 
 
 
