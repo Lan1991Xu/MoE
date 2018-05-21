@@ -7,6 +7,7 @@ from lib.dataset import dataset
 from lib.checkpoint import checkpoint
 from lib.timer import timer
 from lib.solver import solver as solver_
+from lib.factory import *
 
 parser = argparse.ArgumentParser(description='pytorch MoE training')
 parser.add_argument('--epochs', default=200, type=int, metavar='N', help='number of total epochs to run')
@@ -28,9 +29,9 @@ def main():
     ckpt = checkpoint(args.name)
     solver = solver_()
 
-    #todo: get 'moe' by args.method
     # build model
-    moe = IE(args.model_num, ds.num_classes()).cuda()
+    moe = mixture_model_factory(args.method, args.model_num, ds.num_classes())
+
     optimizer = optim.SGD(moe.parameters(), lr=args.lr, nesterov=True, momentum=args.momentum, weight_decay=args.weight_decay)
 
     #resume from file
@@ -38,8 +39,8 @@ def main():
         moe, optimizer = ckpt.load(args.resume, moe, optimizer)
 
     if args.evaluate:
-        solver.validate(dataset.testloader(), moe, optimizer)
-        #evaluate
+        solver.validate(ds.trainloader(), moe, optimizer)
+        # solver.validate(ds.testloader(), moe, optimizer)
         return
 
     best_prec = 0
