@@ -12,7 +12,7 @@ class timer():
         return self.passed() / finished_blocks * total_blocks
 
     def log(self, finished_blocks, total_blocks):
-        print('timer for {name}. time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... '.format(
+        print('timer for {name}. time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... \n'.format(
             name=self.name,
             passed_time=self.passed() / 60,
             extra=self.estimate_extra_time(finished_blocks, total_blocks)/ 60)
