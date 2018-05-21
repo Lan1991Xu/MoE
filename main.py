@@ -43,6 +43,7 @@ def main():
         # solver.validate(ds.testloader(), moe, optimizer)
         return
 
+    print(args)
     best_prec = 0
     tm = timer('training')
 
