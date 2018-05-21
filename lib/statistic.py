@@ -1,0 +1,29 @@
+import torch
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+def correct_count(output, target, reduce=True):
+    _, pred = torch.topk(output, 1, 1, True, True)
+
+    ans = pred == target.view(pred.shape)
+    if reduce:
+        ans = ans.sum()
+    return ans
+
+
+# def oracle_count():
