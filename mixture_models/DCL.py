@@ -1,10 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from lib.statistic import *
-
 from models import *
+import random
 
-OVERLAP = 3
+OVERLAP = 2
 LAM = 0.75
 
 class DCL(nn.Module):
@@ -29,14 +29,22 @@ class DCL(nn.Module):
 
     def accumulate_statistic(self, size, outputs, confidence, target):
         mixture_pred = None
+        # confidence_sqr = confidence * confidence
+        # confidence_pred = confidence_sqr / confidence_sqr.sum(dim=1, keepdim=True)
+        confidence_pred = confidence
+
         for idx in outputs:
             output = outputs[idx]
-            pred = F.softmax(output, dim=1) * confidence[:, idx].unsqueeze(1)
+            # pred = F.softmax(output, dim=1) * confidence_pred[:, idx].unsqueeze(1)
+            pred = F.softmax(output, dim=1)
             mixture_pred = pred if mixture_pred is None else mixture_pred + pred
             self.experts_top1[self.get_expert_name(idx)].update(correct_count(output, target).data[0], size)
         #todo: gate pred topk
         self.top1.update(correct_count(mixture_pred, target).data[0], size)
         self.oracle.update(oracle_count(outputs, target).data[0], size)
+
+        if random.random() < 1.0 / 4000:
+            print('confidence: {}'.format(confidence))
 
     def print_statistic(self):
         print('Accuracy {top1.avg: .3f}% Oracle Accuracy {oracle.avg: .3f}%'.format(top1=self.top1, oracle=self.oracle))
