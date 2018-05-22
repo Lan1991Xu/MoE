@@ -9,7 +9,7 @@ class timer():
         return time.time() - self.start_time
 
     def estimate_extra_time(self, finished_blocks, total_blocks):
-        return self.passed() / finished_blocks * total_blocks
+        return self.passed() / finished_blocks * (total_blocks - finished_blocks)
 
     def log(self, finished_blocks, total_blocks):
         print('timer for {name}. time flies very fast .. {passed_time:.2f} mins passed, about {extra:.2f} mins left... \n'.format(
