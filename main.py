@@ -39,8 +39,8 @@ def main():
         moe, optimizer = ckpt.load(args.resume, moe, optimizer)
 
     if args.evaluate:
-        solver.validate(ds.trainloader(), moe, optimizer)
-        # solver.validate(ds.testloader(), moe, optimizer)
+        # solver.validate(ds.trainloader(), moe, optimizer)
+        solver.validate(ds.testloader(), moe, optimizer)
         return
 
     print(args)
