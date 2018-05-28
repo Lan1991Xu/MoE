@@ -21,6 +21,7 @@ parser.add_argument('-ds', '--dataset', default='cifar100', type=str, help='data
 parser.add_argument('--model-num', default=2, type=int, help='the number of networks')
 parser.add_argument('--method', default='MCL', type=str, help='moe name')
 parser.add_argument('--name', default='regular', type=str, help='name')
+parser.add_argument('--data-augment', default=True, type=lambda x: (str(x).lower() == 'true'), help='data augment')
 
 def main():
     args = parser.parse_args()
@@ -49,7 +50,7 @@ def main():
 
     for epoch in range(args.epochs):
         solver.pre_train(epoch, args.epochs, optimizer, args.lr)
-        solver.train(ds.trainloader(args.batch_size), moe, optimizer)
+        solver.train(ds.trainloader(args.batch_size, data_augment=args.data_augment), moe, optimizer)
         prec = solver.validate(ds.testloader(), moe, optimizer)
 
         is_best = prec > best_prec
