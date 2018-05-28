@@ -3,8 +3,9 @@ import torch.nn.functional as F
 from lib.statistic import *
 from models import *
 import random
+from torch.autograd import Variable
 
-OVERLAP = 2
+OVERLAP = 3
 LAM = 0.75
 
 class DCL(nn.Module):
@@ -12,6 +13,7 @@ class DCL(nn.Module):
     def __init__(self, model_num, num_classes):
         super(DCL, self).__init__()
         self.model_num = model_num
+        self.num_classes = num_classes
         self.loss = 0
         for model_idx in range(model_num):
             self.add_module(self.get_expert_name(model_idx), resnet_feature(depth=get_depth(num_classes), num_classes=num_classes))
@@ -71,19 +73,23 @@ class DCL(nn.Module):
 
     def forward(self, input, target):
         criterion = nn.CrossEntropyLoss(reduce=False).cuda()
-        self.loss = 0
-
-        # for name, expert in self.named_children():
-        #     output = expert(input)
-        #     self.loss += criterion(output, target)
-        #     loss_detail.append(criterion(output, target).view(-1, 1))
-        #     outputs[name] = output
 
         outputs = {}
 
         loss_detail = []
         confidence_detail = []
         entropy_detail = []
+
+        target_detail = []
+        for cls_idx in range(self.num_classes):
+            t = (target.data == cls_idx).float()
+            if t.sum() > 0:
+                t = t / t.sum()
+            t = t.unsqueeze(1)
+            target_detail.append(t)
+        target_detail = torch.cat(target_detail, dim=1)
+        target_detail_t_var = Variable(torch.transpose(target_detail, 0, 1), requires_grad=False)
+
         for idx in range(self.model_num):
             feature, output = self.get_expert(idx)(input)
             outputs[idx] = output
@@ -95,28 +101,31 @@ class DCL(nn.Module):
             confidence_detail.append(confidence.view(-1, 1))
 
         loss_detail = torch.cat(loss_detail, dim=1)
-        loss_value, min_k_loss_idx = torch.topk(loss_detail, k=OVERLAP, dim=1, largest=False, sorted=True)
-        _ , max_loss_idx = torch.topk(loss_detail, k=self.model_num - OVERLAP, dim=1, largest=True, sorted=True)
+        loss_detail_by_category = torch.mm(target_detail_t_var, loss_detail)
+        loss_value, min_k_loss_idx = torch.topk(loss_detail_by_category, k=OVERLAP, dim=1, largest=False, sorted=True)
+        _, max_k_loss_idx = torch.topk(loss_detail_by_category, k=self.model_num - OVERLAP, dim=1, largest=True, sorted=True)
         min_loss_idx = min_k_loss_idx[:, 0].unsqueeze(1)
 
-        confidence_detail = torch.cat(confidence_detail, dim=1)
         entropy_detail = torch.cat(entropy_detail, dim=1)
-        choosed_expert_entropy = torch.gather(entropy_detail, dim=1, index=min_k_loss_idx)
+        entropy_detail_by_category = torch.mm(target_detail_t_var, entropy_detail)
+        choosed_expert_entropy = torch.gather(entropy_detail_by_category, dim=1, index=min_k_loss_idx)
+
+        confidence_detail = torch.cat(confidence_detail, dim=1)
+        confidence_detail_by_category = torch.mm(target_detail_t_var, confidence_detail)
 
         self.gate_loss = 0
         for idx in range(self.model_num):
-            weight = (((max_loss_idx == idx) + (min_loss_idx == idx)).sum(dim=1)>0).float().data
-            self.gate_loss += F.binary_cross_entropy(confidence_detail[:, idx], (min_loss_idx == idx).squeeze(dim=1).float(), weight)
+            weight = (((max_k_loss_idx == idx) + (min_loss_idx == idx)).sum(dim=1)>0).float().data
+            self.gate_loss += F.binary_cross_entropy(confidence_detail_by_category[:, idx], (min_loss_idx == idx).squeeze(dim=1).float(), weight)
 
-        self.expert_mcl_loss = loss_value.mean()
-        self.expert_cmcl_loss = LAM * (entropy_detail.sum(dim=1).mean() - choosed_expert_entropy.sum(dim=1).mean())
+        self.expert_mcl_loss = loss_value.sum(dim=1).mean()
+        self.expert_cmcl_loss = LAM * (entropy_detail_by_category.sum(dim=1).mean() - choosed_expert_entropy.sum(dim=1).mean())
 
         self.accumulate_statistic(input.size(0), outputs, confidence_detail, target)
 
-
     def backward(self):
-        self.loss = self.expert_mcl_loss + self.expert_cmcl_loss + self.gate_loss
-        self.loss.backward()
+        loss = self.expert_mcl_loss + self.expert_cmcl_loss + self.gate_loss
+        loss.backward()
 
 
 def get_depth(num_classes):
